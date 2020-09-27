@@ -275,9 +275,26 @@ class Encryption
         $privateKey = $curve->createPrivateKey();
         $publicKey = $curve->createPublicKey($privateKey);
 
+        if ($publicKey->getPoint()->getX() instanceof BigInteger) {
+            return [
+                new JWK([
+                    'kty' => 'EC',
+                    'crv' => 'P-256',
+                    'x' => Base64Url::encode(self::addNullPadding($publicKey->getPoint()->getX()->toBytes())),
+                    'y' => Base64Url::encode(self::addNullPadding($publicKey->getPoint()->getY()->toBytes())),
+                    'd' => Base64Url::encode(self::addNullPadding($privateKey->getSecret()->toBytes())),
+                ])
+            ];
+        }
+
         return [
-            $publicKey,
-            $privateKey,
+            new JWK([
+                'kty' => 'EC',
+                'crv' => 'P-256',
+                'x' => Base64Url::encode(self::addNullPadding(hex2bin(gmp_strval($publicKey->getPoint()->getX(), 16)))),
+                'y' => Base64Url::encode(self::addNullPadding(hex2bin(gmp_strval($publicKey->getPoint()->getY(), 16)))),
+                'd' => Base64Url::encode(self::addNullPadding(hex2bin(gmp_strval($privateKey->getSecret(), 16)))),
+            ])
         ];
     }
 
@@ -306,9 +323,9 @@ class Encryption
             new JWK([
                 'kty' => 'EC',
                 'crv' => 'P-256',
-                'x' => Base64Url::encode($details['ec']['x']),
-                'y' => Base64Url::encode($details['ec']['y']),
-                'd' => Base64Url::encode($details['ec']['d']),
+                'x' => Base64Url::encode(self::addNullPadding($details['ec']['x'])),
+                'y' => Base64Url::encode(self::addNullPadding($details['ec']['y'])),
+                'd' => Base64Url::encode(self::addNullPadding($details['ec']['d'])),
             ])
         ];
     }
@@ -397,5 +414,10 @@ class Encryption
         $value = unpack('H*', Base64Url::decode($value));
 
         return gmp_init($value[1], 16);
+    }
+
+    private static function addNullPadding(string $data): string
+    {
+        return str_pad($data, 32, chr(0), STR_PAD_LEFT);
     }
 }
